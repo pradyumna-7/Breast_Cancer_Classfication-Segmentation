@@ -11,7 +11,6 @@ export default function Navbar(){
       setIsDropdownOpen(!isDropdownOpen);
     };
   
-    // Close the dropdown when clicking outside the dropdown itself
     const handleOutsideClick = (event) => {
       if (isDropdownOpen && !event.target.closest('.relative')) {
         setIsDropdownOpen(false);
@@ -25,12 +24,15 @@ export default function Navbar(){
     }, [isDropdownOpen]);
   
     return (
-      <nav className="bg-gray-800">
+      <nav className="bg-gray-800 absolute top-0 w-full z-50 left-0">
         <div className="flex justify-between items-center px-4 py-6 mx-auto lg:max-w-7xl md:max-w-2xl sm:max-w-full">
           <Link to="/" className="text-3xl font-bold text-white">Your Dashboard</Link>
           <div className="flex items-center space-x-4">
-            <Link to="/dashboard" className="text-white hover:text-gray-200 px-3 py-2 rounded-md">
+            <Link to="/home" className="text-white hover:bg-gray-700 px-3 py-2 rounded-md">
               Dashboard
+            </Link>
+            <Link to="/about" className="text-white hover:bg-gray-700 px-3 py-2 rounded-md">
+              About
             </Link>
             {/* Rest of the navigation links */}
             <div className="relative">

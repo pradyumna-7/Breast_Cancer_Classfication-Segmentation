@@ -3,7 +3,7 @@ const Student = require('../models/students');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv').config();
-const sendSMS = require('../sendOTP');
+// const sendSMS = require('../sendOTP');
 const axios = require('axios');
 
 const test = (req, res) => {
@@ -115,57 +115,57 @@ const verified = async (req, res) => {
     .catch(err => res.status(400).json('Error: ' + err));
 }
 
-const sendOTP = async (req, res) => {
-    const {email, phone, otp} = req.body;
-    const user = await User.findOne({email});
+// const sendOTP = async (req, res) => {
+//     const {email, phone, otp} = req.body;
+//     const user = await User.findOne({email});
 
-    console.log('request sent')
-    try{
-        if(!user){
-            return res.json({
-                error: 'User does not exist'
-            })
-        }
-        if(phone != user.phone){
-            return res.json({
-                error: 'Incorrect phone number'
-            })
-        }
-        user.otp = otp;
-        await user.save();
-        sendSMS(user.phone, "Your verification code is:\n"+otp);
-        console.log("OTP sent")
-        return res.json(User)
-    }
-    catch (error) {
-        console.log(error)}
-}
+//     console.log('request sent')
+//     try{
+//         if(!user){
+//             return res.json({
+//                 error: 'User does not exist'
+//             })
+//         }
+//         if(phone != user.phone){
+//             return res.json({
+//                 error: 'Incorrect phone number'
+//             })
+//         }
+//         user.otp = otp;
+//         await user.save();
+//         sendSMS(user.phone, "Your verification code is:\n"+otp);
+//         console.log("OTP sent")
+//         return res.json(User)
+//     }
+//     catch (error) {
+//         console.log(error)}
+// }
 
-const verifyOTP = async (req, res) => {
-    const {email, phone,otp} = req.body;
-    const user = await User.findOne({email});
-    try{
-        if(!user){
-            return res.json({
-                error: 'User does not exist'
-            })
-        }
-        if(otp == user.otp){
-            await User.updateOne({ email: email }, { $unset: { otp: 1 } })
-            console.log("Verified")
-            return res.json({
-                success: 'Verified'
-            })
-        }
-        else{
-            return res.json({
-                error: 'Incorrect OTP'
-            })
-        }
-    }
-    catch (error) {
-        console.log(error)}
-}
+// const verifyOTP = async (req, res) => {
+//     const {email, phone,otp} = req.body;
+//     const user = await User.findOne({email});
+//     try{
+//         if(!user){
+//             return res.json({
+//                 error: 'User does not exist'
+//             })
+//         }
+//         if(otp == user.otp){
+//             await User.updateOne({ email: email }, { $unset: { otp: 1 } })
+//             console.log("Verified")
+//             return res.json({
+//                 success: 'Verified'
+//             })
+//         }
+//         else{
+//             return res.json({
+//                 error: 'Incorrect OTP'
+//             })
+//         }
+//     }
+//     catch (error) {
+//         console.log(error)}
+// }
 
 const loginUser = async (req, res) => {
     try {
@@ -263,6 +263,6 @@ module.exports = {
     deleteStudent,
     deleteAll,
     verified,
-    sendOTP,
-    verifyOTP,
+    // sendOTP,
+    // verifyOTP,
 }

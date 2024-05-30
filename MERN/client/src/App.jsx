@@ -7,9 +7,7 @@ import Register from './pages/Register'
 import Verify from './pages/Verify'
 import axios from 'axios'
 import 'bootstrap/dist/css/bootstrap.min.css'
-import Create from './pages/Create'
-import Update from './pages/Update'
-import View from './pages/View'
+
 
 
 axios.defaults.withCredentials = true
@@ -20,21 +18,15 @@ function App() {
   const location = useLocation()
 
   const isHome = location.pathname === '/home'
-  const isCreate = location.pathname === '/create'
-  const isUpdate = location.pathname === '/update/:id'
-  const isView = location.pathname === '/view'
 
   return (
     <>
-    {(isHome || isCreate || isUpdate || isView) && <Navbar />}
+    {(isHome) && <Navbar />}
     <Routes>
       <Route path='/' element={<Register />} />
       <Route path='/login' element={<Login />} />
       <Route path='/home' element={<Home />} />
-      <Route path='/create' element={<Create />} />
-      <Route path='/update/:id' element={<Update />} />
       <Route path='/verify/:id' element={<Verify />} />
-      <Route path='/view' element={<View />} />
     </Routes>
     </>
 
@@ -43,3 +35,4 @@ function App() {
 }
 
 export default App
+

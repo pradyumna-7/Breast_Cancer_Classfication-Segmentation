@@ -120,7 +120,7 @@ def predict_llm():
         return jsonify({'error': str(e)})
 
 
-@app.route('/predict_DL', methods=['POST'])
+@app.route('/predict_dl', methods=['POST'])
 def predict_DL():
     try:
         # Read the image file from request data

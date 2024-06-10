@@ -28,6 +28,7 @@ export default function Login() {
             }
             else{
                 setData({})
+				localStorage.setItem('token', data.token)
                 toast.success('Logged in successfully!')
                 navigate('/home')
             }

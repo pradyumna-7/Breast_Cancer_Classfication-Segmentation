@@ -9,6 +9,7 @@ export default function Home() {
   const [predictionDL, setPredictionDL] = useState('');
 
   const handleImageChangeLLM = (e) => {
+    setPredictionLLM('');
     const file = e.target.files[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
@@ -17,6 +18,7 @@ export default function Home() {
   };
 
   const handleImageChangeDL = (e) => {
+    setPredictionDL('');
     const file = e.target.files[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
@@ -63,8 +65,52 @@ export default function Home() {
     }
   };
 
+  const sendToUnreal = async (prediction, selectedImage) => {
+    if (prediction) {
+      const formData = new FormData();
+      const response = await fetch(selectedImage);
+      const blob = await response.blob();
+      formData.append('image', blob, 'image.jpg');
+      const jsonData = JSON.stringify(prediction);
+      console.log(jsonData);
+      formData.append('prediction', jsonData);
+      console.log(formData);
+
+      const unrealURL = 'http://192.168.9.246:5000/imageUpload';
+      const unrealResponse = await fetch(unrealURL, {
+        method: 'POST',
+        body: formData,
+      });
+      console.log(unrealResponse);
+
+      if (unrealResponse.ok) {
+        toast.success('Image sent to Unreal Engine');
+      } else {
+        toast.error('Failed to send image to Unreal Engine');
+      }
+    }
+
+
+  };
+
+  const sendToUnrealLLM = () => {
+    if (predictionLLM) {
+      sendToUnreal(predictionLLM, selectedImageLLM);
+    } else {
+      toast.error('Please upload an image and predict first');
+    }
+  };
+
+  const sendToUnrealDL = () => {
+    if (predictionDL) {
+      sendToUnreal(predictionDL, selectedImageDL);
+    } else {
+      toast.error('Please upload an image and predict first');
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center mt-52 h-full" >
+    <div className="flex flex-col items-center justify-center mt-48 h-full" >
       <h1 className="text-3xl font-bold mb-8">Breast Cancer Segmentation and Classification with LLM and DL</h1>
       <div className="flex flex-wrap w-full max-w-5xl mx-auto">
         <div className="w-full md:w-1/2 px-2">
@@ -81,7 +127,7 @@ export default function Home() {
                 {predictionLLM && <div className={styles.pred_msg}>Our LLM predicts: {predictionLLM}</div>}
                 <div className="flex mt-2">
                   <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={uploadImageLLM}>Predict with LLM</button>
-                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Send to Unreal</button>
+                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={sendToUnrealLLM}>Send to Unreal</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSelectedImageLLM(''); setPredictionLLM('')}}>Clear</button>
                 </div>
               </div>
@@ -102,7 +148,7 @@ export default function Home() {
                 {predictionDL && <div className={styles.pred_msg}>Our Deep Learning model predicts: {predictionDL}</div>}
                 <div className="flex mt-2">
                   <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={uploadImageDL}>Predict with DL</button>
-                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Send to Unreal</button>
+                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={sendToUnrealDL}>Send to Unreal</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setPredictionDL(''); setSelectedImageDL('')}}>Clear</button>
                 </div>
               </div>

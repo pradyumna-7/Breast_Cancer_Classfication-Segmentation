@@ -1,134 +1,169 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import styles from '../styles/home.module.css';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import Switch from '@mui/material/Switch';
+import { styled } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
+
+const MaterialUISwitch = styled(Switch)(({ theme }) => ({
+  width: 80,
+  height: 40,
+  padding: 7,
+  '& .MuiSwitch-switchBase': {
+    margin: 1,
+    padding: 0,
+    transform: 'translateX(6px)',
+    '&.Mui-checked': {
+      color: '#fff',
+      transform: 'translateX(38px)',
+      '& .MuiSwitch-thumb:before': {
+        backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${encodeURIComponent(
+          '#FFFFFF',
+        )}"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm40-80h480L570-480 450-320l-90-120-120 160Zm-40 80v-560 560Z"/></svg>')`,
+      },
+      '& + .MuiSwitch-track': {
+        opacity: 1,
+        backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+      },
+    },
+  },
+  '& .MuiSwitch-thumb': {
+    backgroundColor: theme.palette.mode === 'dark' ? '#003892' : '#001e3c',
+    width: 37,
+    height: 35,
+    '&::before': {
+      content: "''",
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      left: 0,
+      top: 0,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${encodeURIComponent(
+        '#FFFFFF',
+      )}"><path d="m380-300 280-180-280-180v360ZM160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-480H160v480Zm0 0v-480 480Z"/></svg>')`,
+    },
+  },
+  '& .MuiSwitch-track': {
+    opacity: 1,
+    backgroundColor: theme.palette.mode === 'dark' ? '#8796A5' : '#aab4be',
+    borderRadius: 50 / 2,
+  },
+}));
+
+
 
 export default function Home() {
-  const [selectedImageLLM, setSelectedImageLLM] = useState('');
-  const [selectedImageDL, setSelectedImageDL] = useState('');
-  const [predictionLLM, setPredictionLLM] = useState('');
-  const [predictionDL, setPredictionDL] = useState('');
 
-  const handleImageChangeLLM = (e) => {
-    setPredictionLLM('');
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImageLLM(imageUrl);
+  const [checked, setChecked] = useState(false);
+  const [input, setInput] = useState('video');
+
+  const[classLLMfile, setClassLLMfile] = useState('');
+  const[classDLfile, setClassDLfile] = useState('');
+  const[segLLMfile, setSegLLMfile] = useState('');
+  const[segDLfile, setSegDLfile] = useState('');
+  const[maskLLMfile, setMaskLLMfile] = useState('');
+  const[maskDLfile, setMaskDLfile] = useState('');
+  const navigate = useNavigate();
+
+  const handleFileChange = (e, setFile) => {
+    setFile('')
+    const file = e.target.files[0]
+    if(file){
+      const fileUrl = URL.createObjectURL(file);
+      setFile(fileUrl);
     }
   };
 
-  const handleImageChangeDL = (e) => {
-    setPredictionDL('');
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setSelectedImageDL(imageUrl);
-    }
-  };
-
-  const uploadImage = async (imageUrl, predictUrl, setPrediction) => {
-    const toastID = toast.loading('Uploading Image and Predicting...');
+  const uploadVideoClass = async (videoUrl, predictUrl, flag) => {
+    const toastID = toast.loading(`Uploading ${input} and Predicting...`, { duration: Infinity });
     try {
       const formData = new FormData();
-      const response = await fetch(imageUrl);
+      const response = await fetch(videoUrl);
       const blob = await response.blob();
-      formData.append('image', blob, 'image.jpg');
-      const predictResponse = await fetch(predictUrl, {
-        method: 'POST',
-        body: formData,
+      if(input==='video'){
+        formData.append('video', blob, 'video.mp4');
+      }
+      else{
+        formData.append('image', blob, 'image.png');
+      }
+      const predictResponse = await axios.post(predictUrl, formData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        responseType: `${checked ? 'arraybuffer' : 'blob'}`,
       });
-      const data = await predictResponse.json();
-      setPrediction(data.prediction);
+
+      const predictBlob = new Blob([predictResponse.data], { type: checked ? 'image/png' : 'video/mp4' });
       toast.dismiss(toastID);
+      toast.success('Prediction complete');
+
+      const UnrealFormData = new FormData();
+      UnrealFormData.append(`${input}_${flag}_classification`, predictBlob, `${input}_${flag}_classification.${checked ? 'png' : 'mp4'}`);
+      UnrealFormData.append(`input_${input}_${flag}`, blob, `input_${input}_${flag}.${checked ? 'png' : 'mp4'}`);
+
+      const postUrl = `http://192.168.6.246:5000/${checked ? 'upload_image' : 'upload_video'}`;
+      toast.loading(`Uploading ${input} to Unreal...`, { duration:'2s' });
+      await fetch(postUrl, {
+        method: 'POST',
+        body: UnrealFormData,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
     } catch (error) {
-      console.error(error);
-      toast.error('Failed to upload image');
       toast.dismiss(toastID);
-    }
-  };
-
-  const uploadImageLLM = () => {
-    if (selectedImageLLM) {
-      setPredictionLLM('');
-      uploadImage(selectedImageLLM, 'http://127.0.0.1:5000//predict_llm', setPredictionLLM);
-    } else {
-      toast.error('Please upload an image');
-    }
-  };
-
-  const uploadImageDL = () => {
-    if (selectedImageDL) {
-      setPredictionDL('');
-      uploadImage(selectedImageDL, 'http://127.0.0.1:5000//predict_dl', setPredictionDL);
-    } else {
-      toast.error('Please upload an image');
-    }
-  };
-
-  const sendToUnreal = async (prediction, selectedImage) => {
-    if (prediction) {
-      const formData = new FormData();
-      const response = await fetch(selectedImage);
-      const blob = await response.blob();
-      formData.append('image', blob, 'image.jpg');
-      const jsonData = JSON.stringify(prediction);
-      console.log(jsonData);
-      formData.append('prediction', jsonData);
-      console.log(formData);
-
-      const unrealURL = 'http://192.168.9.246:5000/imageUpload';
-      const unrealResponse = await fetch(unrealURL, {
-        method: 'POST',
-        body: formData,
-      });
-      console.log(unrealResponse);
-
-      if (unrealResponse.ok) {
-        toast.success('Image sent to Unreal Engine');
+      if (error.response && error.response.status === 401) {
+        toast.error('Unauthorized access. Please login.');
+        navigate('/login');
       } else {
-        toast.error('Failed to send image to Unreal Engine');
+        toast.error('Failed to upload video');
       }
     }
-
-
   };
 
-  const sendToUnrealLLM = () => {
-    if (predictionLLM) {
-      sendToUnreal(predictionLLM, selectedImageLLM);
-    } else {
-      toast.error('Please upload an image and predict first');
+  const handleChange = (event) => {
+    setChecked(event.target.checked);
+    setInput(event.target.checked ? 'image' : 'video');
+    if (!event.target.checked) {
+      setClassLLMfile('');
+      setClassDLfile('');
+      setSegLLMfile('');
+      setSegDLfile('');
+      setMaskLLMfile('');
+      setMaskDLfile('');
     }
   };
 
-  const sendToUnrealDL = () => {
-    if (predictionDL) {
-      sendToUnreal(predictionDL, selectedImageDL);
-    } else {
-      toast.error('Please upload an image and predict first');
-    }
-  };
+
 
   return (
-    <div className="flex flex-col items-center justify-center mt-48 h-full" >
+    <div className="flex flex-col items-center justify-center mt-28 h-full">
       <h1 className="text-3xl font-bold mb-8">Breast Cancer Segmentation and Classification with LLM and DL</h1>
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row justify-center items-center mb-8">
+      <h2 className="text-2xl font db-8 items-left mr-2">Select your type of input: </h2>
+      <Typography variant="h5" style={{ fontWeight: 'bold' }}>{checked ? 'Image' : 'Video'}</Typography>
+      <MaterialUISwitch checked={checked} onChange={handleChange} />
+      </div>
       <div className="flex flex-wrap w-full max-w-5xl mx-auto">
         <div className="w-full md:w-1/2 px-2">
           <div className="bg-white rounded-xl overflow-hidden shadow-lg h-full">
             <div className="px-6 py-4">
-              <div className="font-bold text-xl mb-2">Predict with LLM</div>
+              <div className="font-bold text-xl mb-2">Classification with LLM</div>
               <div className="flex flex-col mt-4">
-                <input type="file" accept="image/*" onChange={handleImageChangeLLM} style={{ marginBottom: '10px' }} />
-                {selectedImageLLM && (
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setClassLLMfile);}} style={{ marginBottom: '10px' }} />
+                {classLLMfile && (
                   <div>
-                    <img src={selectedImageLLM} alt="Selected" style={{ maxWidth: '200px', maxHeight: '200px' }} />
+                    {checked ? <img src={classLLMfile} alt="Uploaded Image" /> : <video src={classLLMfile} controls/>}
                   </div>
                 )}
-                {predictionLLM && <div className={styles.pred_msg}>Our LLM predicts: {predictionLLM}</div>}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={uploadImageLLM}>Predict with LLM</button>
-                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={sendToUnrealLLM}>Send to Unreal</button>
-                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSelectedImageLLM(''); setPredictionLLM('')}}>Clear</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadVideoClass(classLLMfile, checked ? '/image_dl' : '/video_dl', 'llm')}>Predict with LLM</button>
+                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setClassLLMfile('');}}>Clear</button>
                 </div>
               </div>
             </div>
@@ -137,19 +172,69 @@ export default function Home() {
         <div className="w-full md:w-1/2 px-2">
           <div className="bg-white rounded-xl overflow-hidden shadow-lg h-full">
             <div className="px-6 py-4">
-              <div className="font-bold text-xl mb-2">Predict with DL</div>
+              <div className="font-bold text-xl mb-2">Classification with DL</div>
               <div className="flex flex-col mt-4">
-                <input type="file" accept="image/*" onChange={handleImageChangeDL} style={{ marginBottom: '10px' }} />
-                {selectedImageDL && (
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setClassDLfile);}} style={{ marginBottom: '10px' }} />
+                {classDLfile && (
                   <div>
-                    <img src={selectedImageDL} alt="Selected" style={{ maxWidth: '200px', maxHeight: '200px' }} />
+                    {checked ? <img src={classDLfile} alt="Uploaded Image" /> : <video src={classDLfile} controls/>}
                   </div>
                 )}
-                {predictionDL && <div className={styles.pred_msg}>Our Deep Learning model predicts: {predictionDL}</div>}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={uploadImageDL}>Predict with DL</button>
-                  <button className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={sendToUnrealDL}>Send to Unreal</button>
-                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setPredictionDL(''); setSelectedImageDL('')}}>Clear</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadVideoClass(classDLfile, checked ? '/image_dl' : '/video_dl', 'dl')}>Predict with DL</button>
+                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setClassDLfile('');}}>Clear</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="w-full md:w-1/2 px-2 mt-4">
+          <div className="bg-white rounded-xl overflow-hidden shadow-lg h-full">
+            <div className="px-6 py-4">
+              <div className="font-bold text-xl mb-2">Segmentation with LLM</div>
+              <div className="flex flex-col mt-4">
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setSegLLMfile)}} style={{ marginBottom: '10px' }} />
+                {segLLMfile && (
+                  <div>
+                    <video src={segLLMfile} controls />
+                  </div>
+                )}
+                <h3 className="font-bold text-lg mb-2 flex justify-left mt-4">Ground Truth Input: </h3>
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setMaskLLMfile)}} style={{ marginBottom: '10px' }} />
+                {maskLLMfile && (
+                  <div>
+                    <video src={maskLLMfile} controls />
+                  </div>
+                )}
+                <div className="flex mt-2">
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Predict with LLM</button>
+                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSegLLMfile(''); setMaskLLMfile('');}}>Clear</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="w-full md:w-1/2 px-2 mt-4">
+          <div className="bg-white rounded-xl overflow-hidden shadow-lg h-full">
+            <div className="px-6 py-4">
+              <div className="font-bold text-xl mb-2">Segmentation with DL</div>
+              <div className="flex flex-col mt-4">
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setSegDLfile)}} style={{ marginBottom: '10px' }} />
+                {segDLfile && (
+                  <div>
+                    <video src={segDLfile} controls />
+                  </div>
+                )}
+                <h3 className="font-bold text-lg mb-2 flex justify-left mt-4">Ground Truth Input: </h3>
+                <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setMaskDLfile)}} style={{ marginBottom: '10px' }} />
+                {maskDLfile && (
+                  <div>
+                    <video src={maskDLfile} controls />
+                  </div>
+                )}
+                <div className="flex mt-2">
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Predict with DL</button>
+                  <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSegDLfile(''); setMaskDLfile('');}}>Clear</button>
                 </div>
               </div>
             </div>

@@ -68,6 +68,8 @@ export default function Home() {
   const[maskLLMfile, setMaskLLMfile] = useState('');
   const[maskDLfile, setMaskDLfile] = useState('');
   const navigate = useNavigate();
+  const UnrealUrl ="http://192.168.255.111:5050"
+  const PixelUrl="http://192.168.255.111:80"
 
   const handleFileChange = (e, setFile) => {
     setFile('')
@@ -78,11 +80,11 @@ export default function Home() {
     }
   };
 
-  const uploadVideoClass = async (videoUrl, predictUrl, flag) => {
+  const uploadFileClass = async (fileUrl, predictUrl, flag) => {
     const toastID = toast.loading(`Uploading ${input} and Predicting...`, { duration: Infinity });
     try {
       const formData = new FormData();
-      const response = await fetch(videoUrl);
+      const response = await fetch(fileUrl);
       const blob = await response.blob();
       if(input==='video'){
         formData.append('video', blob, 'video.mp4');
@@ -106,7 +108,7 @@ export default function Home() {
       UnrealFormData.append(`${input}_${flag}_classification`, predictBlob, `${input}_${flag}_classification.${checked ? 'png' : 'mp4'}`);
       UnrealFormData.append(`input_${input}_${flag}`, blob, `input_${input}_${flag}.${checked ? 'png' : 'mp4'}`);
 
-      const postUrl = `http://192.168.6.246:5000/${checked ? 'upload_image' : 'upload_video'}`;
+      const postUrl = `${UnrealUrl}/${checked ? 'upload_image' : 'upload_video'}`;
       toast.loading(`Uploading ${input} to Unreal...`, { duration:'2s' });
       await fetch(postUrl, {
         method: 'POST',
@@ -115,29 +117,83 @@ export default function Home() {
           'Accept': 'application/json',
         },
       });
+      window.open(PixelUrl, '_blank')
     } catch (error) {
       toast.dismiss(toastID);
       if (error.response && error.response.status === 401) {
         toast.error('Unauthorized access. Please login.');
         navigate('/login');
       } else {
-        toast.error('Failed to upload video');
+        toast.dismiss(toastID)
+        if(!fileUrl) toast.error(`Please upload ${input}`)
+        else toast.error(`Failed to upload ${input}`);
+      }
+    }
+  };
+
+  const uploadFileSeg = async(fileUrl, maskUrl, predictUrl, flag) => {
+    console.log('hi')
+    const toastID = toast.loading(`Uploading ${input} and Predicting...`, { duration: Infinity });
+    try {
+      const formData = new FormData();
+      const res1 = await fetch(fileUrl);
+      const res2 = await fetch(maskUrl);
+      const blob1 = await res1.blob();
+      const blob2 = await res2.blob()
+      formData.append('image', blob1, 'image.jpeg')
+      formData.append('mask', blob2, 'mask.jpeg')
+      const predictResponse = await axios.post(predictUrl, formData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        responseType: `arraybuffer`,
+      });
+      const predictBlob = new Blob([predictResponse.data], { type: checked ? 'image/png' : 'video/mp4' });
+      toast.dismiss(toastID);
+      toast.success('Prediction complete');
+
+      const UnrealFormData = new FormData();
+      UnrealFormData.append(`${input}_${flag}_segmentation`, predictBlob, `${input}_${flag}_segmentation.${checked ? 'png' : 'mp4'}`);
+      UnrealFormData.append(`input_${input}_${flag}`, blob1, `input_${input}_${flag}.${checked ? 'png' : 'mp4'}`);
+
+      const postUrl = `${UnrealUrl}/${checked ? 'upload_image' : 'upload_video'}`;
+      toast.loading(`Uploading ${input} to Unreal...`, { duration:'2s' });
+      await fetch(postUrl, {
+        method: 'POST',
+        body: UnrealFormData,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      window.open(PixelUrl, '_blank')
+    } catch (error) {
+      toast.dismiss(toastID);
+      if (error.response && error.response.status === 401) {
+        toast.error('Unauthorized access. Please login.');
+        navigate('/login');
+      } else {
+        toast.dismiss(toastID)
+        console.log(error)
+        if(!fileUrl) toast.error(`Please upload ${input}`)
+        else toast.error(`Failed to upload ${input}`);
       }
     }
   };
 
   const handleChange = (event) => {
+    setClassLLMfile('');
+    setClassDLfile('');
+    setSegLLMfile('');
+    setSegDLfile('');
+    setMaskLLMfile('');
+    setMaskDLfile('');
     setChecked(event.target.checked);
     setInput(event.target.checked ? 'image' : 'video');
-    if (!event.target.checked) {
-      setClassLLMfile('');
-      setClassDLfile('');
-      setSegLLMfile('');
-      setSegDLfile('');
-      setMaskLLMfile('');
-      setMaskDLfile('');
-    }
   };
+
+
 
 
 
@@ -162,7 +218,7 @@ export default function Home() {
                   </div>
                 )}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadVideoClass(classLLMfile, checked ? '/image_dl' : '/video_dl', 'llm')}>Predict with LLM</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadFileClass(classLLMfile, checked ? '/image_class_dl' : '/video_class_llm', 'llm')}>Predict with LLM</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setClassLLMfile('');}}>Clear</button>
                 </div>
               </div>
@@ -181,13 +237,15 @@ export default function Home() {
                   </div>
                 )}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadVideoClass(classDLfile, checked ? '/image_dl' : '/video_dl', 'dl')}>Predict with DL</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={() => uploadFileClass(classDLfile, checked ? '/image_class_dl' : '/video_class_dl', 'dl')}>Predict with DL</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setClassDLfile('');}}>Clear</button>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* SEGMENTATION */}
         <div className="w-full md:w-1/2 px-2 mt-4">
           <div className="bg-white rounded-xl overflow-hidden shadow-lg h-full">
             <div className="px-6 py-4">
@@ -196,18 +254,19 @@ export default function Home() {
                 <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setSegLLMfile)}} style={{ marginBottom: '10px' }} />
                 {segLLMfile && (
                   <div>
-                    <video src={segLLMfile} controls />
+                    {checked ? <img src={segLLMfile} alt="Uploaded Image" /> : <video src={segLLMfile} controls/>}
+
                   </div>
                 )}
                 <h3 className="font-bold text-lg mb-2 flex justify-left mt-4">Ground Truth Input: </h3>
                 <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setMaskLLMfile)}} style={{ marginBottom: '10px' }} />
                 {maskLLMfile && (
                   <div>
-                    <video src={maskLLMfile} controls />
+                    {checked ? <img src={maskLLMfile} alt="Uploaded Image" /> : <video src={maskLLMfile} controls/>}
                   </div>
                 )}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Predict with LLM</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={()=> uploadFileSeg(segLLMfile, maskLLMfile, '/image_seg_llm', 'llm')}>Predict with LLM</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSegLLMfile(''); setMaskLLMfile('');}}>Clear</button>
                 </div>
               </div>
@@ -222,18 +281,18 @@ export default function Home() {
                 <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setSegDLfile)}} style={{ marginBottom: '10px' }} />
                 {segDLfile && (
                   <div>
-                    <video src={segDLfile} controls />
+                    {checked ? <img src={segDLfile} alt="Uploaded Image" /> : <video src={segDLfile} controls/>}
                   </div>
                 )}
                 <h3 className="font-bold text-lg mb-2 flex justify-left mt-4">Ground Truth Input: </h3>
                 <input type="file" accept={checked ? 'image/*' : 'video/*'} onChange={(e) => {handleFileChange(e, setMaskDLfile)}} style={{ marginBottom: '10px' }} />
                 {maskDLfile && (
                   <div>
-                    <video src={maskDLfile} controls />
+                    {checked ? <img src={maskDLfile} alt="Uploaded Image" /> : <video src={maskDLfile} controls/>}
                   </div>
                 )}
                 <div className="flex mt-2">
-                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" >Predict with DL</button>
+                  <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2" onClick={()=> uploadFileSeg(segLLMfile, maskLLMfile, '/image_seg_llm', 'llm')}>Predict with DL</button>
                   <button className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={() => {setSegDLfile(''); setMaskDLfile('');}}>Clear</button>
                 </div>
               </div>

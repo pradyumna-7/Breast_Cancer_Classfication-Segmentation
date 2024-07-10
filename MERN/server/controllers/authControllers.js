@@ -1,10 +1,12 @@
 const User = require('../models/users');
-const Student = require('../models/students');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv').config();
 // const sendSMS = require('../sendOTP');
+const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const cookieParser = require('cookie-parser');
+const FormData = require('form-data');
 
 const test = (req, res) => {
     res.json('test is working');
@@ -192,6 +194,13 @@ const loginUser = async (req, res) => {
             })
         }
         else{
+            res.clearCookie('token');
+            const token = jwt.sign(
+                {userID: user._id},
+                process.env.JWT_SECRET,
+                {expiresIn: '1d'}
+            )
+            res.cookie('token', token, {httpOnly: true});
             return res.json(User)
         }
     }
@@ -199,70 +208,72 @@ const loginUser = async (req, res) => {
         console.log(error)}
 }
 
-const createStudent = async (req, res) => {
-    console.log(req.body)
-    const {name, email, rollno} = req.body;
-    const exist = await Student.findOne({rollno});
-    if(exist){
-        return res.json({
-            error: 'Roll No already exist'
-        })
-    };
-    const student = await Student.create({
-        name,
-        email,
-        rollno
-    })
-    .then(students => res.json(students))
-    .catch(err => console.log(err));
-}
+const uploadFileClass = async (req, res, model, input) => {
+    if (res.statusCode === 401) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+    try {
+        const formData = new FormData();
+        formData.append(`${input}`, req.file.buffer, req.file.originalname);
+        const flaskResponse = await axios.post(`http://127.0.0.1:5000/predict_${input}_${model}`, formData, {
+            headers: {
+                ...formData.getHeaders()
+            },
+            responseType: `${input==='video' ? 'stream' : 'arraybuffer'}`
+        });
+        if(input==='video') flaskResponse.data.pipe(res);
+        else {
+            res.set('Content-Type', 'image/png'); // Set the response content type to image
+            res.send(Buffer.from(flaskResponse.data, 'binary')); // Send the response as binary data
+        }
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Error processing video', error: error.message });
+    }
+};
 
-const getStudents = async (req, res) => {
-    const students  = await Student.find({})
-    .then(students => res.json(students))
-    .catch(err => res.status(400).json('Error: ' + err));
-}
+const uploadFileSeg = async (req, res, model, input) =>{
+    // console.log('hi')
+    if (res.statusCode === 401) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!req.files || !req.files['image'] || !req.files['mask']) {
+        return res.status(400).json({ message: 'No files uploaded' });
+    }
+    try {
+        const formData = new FormData();
+        formData.append('image', req.files['image'][0].buffer, req.files['image'][0].originalname);
+        formData.append('mask', req.files['mask'][0].buffer, req.files['mask'][0].originalname);
 
-const findStudent = async (req, res) => {
-    const id  = req.params.id;
-    const student  = await Student.findOne({rollno:id})
-    .then(student => res.json(student))
-    .catch(err => res.status(400).json('Error: ' + err));
-}
+        const flaskResponse = await axios.post(`http://127.0.0.1:5000/predict_${input}`, formData, {
+            headers: {
+                ...formData.getHeaders()
+            },
+            responseType: `${input==='video' ? 'stream' : 'arraybuffer'}`
+        });
+        if(input==='video') flaskResponse.data.pipe(res);
+        else {
+            res.set('Content-Type', 'image/png'); // Set the response content type to image
+            res.send(Buffer.from(flaskResponse.data, 'binary')); // Send the response as binary data
+        }
 
-const updateStudent = async (req, res) => {
-    const id  = req.params.id;
-    const student  = await Student.findOneAndUpdate({rollno:id}, req.body)
-    .then(student => res.json(student))
-    .catch(err => res.status(400).json('Error: ' + err));
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Error processing video', error: error.message });
+    }
 }
-
-const deleteStudent = async (req, res) => {
-    const id  = req.params.id;
-    const student  = await Student.findOneAndDelete({rollno:id})
-    .then(student => res.json(student))
-    .catch(err => res.status(400).json('Error: ' + err));
-}
-
-const deleteAll = async (req, res) => {
-    const student  = await Student.deleteMany({})
-    .then(student => res.json(student))
-    .catch(err => res.status(400).json('Error: ' + err));
-}
-
 
 
 module.exports = {
     test,
     registerUser,
     loginUser,
-    createStudent,
-    getStudents,
-    findStudent,
-    updateStudent,
-    deleteStudent,
-    deleteAll,
     verified,
+    uploadFileClass,
+    uploadFileSeg,
     // sendOTP,
     // verifyOTP,
 }
